@@ -1,12 +1,13 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Abstractions;
 
 namespace JsonFlatFileDataStore
 {
     internal static class FileAccess
     {
-        internal static string ReadJsonFromFile(string path, Func<string, string> encryptJson, Func<string, string> decryptJson)
+        internal static string ReadJsonFromFile(IFileSystem fs, string path, Func<string, string> encryptJson, Func<string, string> decryptJson)
         {
             Stopwatch sw = null;
             var json = "{}";
@@ -15,13 +16,13 @@ namespace JsonFlatFileDataStore
             {
                 try
                 {
-                    json = File.ReadAllText(path);
+                    json = fs.File.ReadAllText(path);
                     break;
                 }
                 catch (FileNotFoundException)
                 {
                     json = encryptJson(json);
-                    File.WriteAllText(path, json);
+                    fs.File.WriteAllText(path, json);
                     break;
                 }
                 catch (IOException e) when (e.Message.Contains("because it is being used by another process"))
@@ -36,7 +37,7 @@ namespace JsonFlatFileDataStore
             return decryptJson(json);
         }
 
-        internal static bool WriteJsonToFile(string path, Func<string, string> encryptJson, string content)
+        internal static bool WriteJsonToFile(IFileSystem fs, string path, Func<string, string> encryptJson, string content)
         {
             Stopwatch sw = null;
 
@@ -44,7 +45,7 @@ namespace JsonFlatFileDataStore
             {
                 try
                 {
-                    File.WriteAllText(path, encryptJson(content));
+                    fs.File.WriteAllText(path, encryptJson(content));
                     return true;
                 }
                 catch (IOException e) when (e.Message.Contains("because it is being used by another process"))

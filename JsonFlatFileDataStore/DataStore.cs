@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Globalization;
+using System.IO.Abstractions;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,8 +35,15 @@ namespace JsonFlatFileDataStore
         private bool _executingJsonUpdate;
 
         public DataStore(string path, bool useLowerCamelCase = true, string keyProperty = null, bool reloadBeforeGetCollection = false,
+            string encryptionKey = null, bool minifyJson = false) :
+            this(new FileSystem(), path, useLowerCamelCase, keyProperty, reloadBeforeGetCollection, encryptionKey, minifyJson)
+        {
+        }
+
+        public DataStore(IFileSystem fs, string path, bool useLowerCamelCase = true, string keyProperty = null, bool reloadBeforeGetCollection = false,
             string encryptionKey = null, bool minifyJson = false)
         {
+            this.FS = fs;
             _filePath = path;
 
             var useEncryption = !string.IsNullOrWhiteSpace(encryptionKey);
@@ -86,11 +94,16 @@ namespace JsonFlatFileDataStore
                             _jsonData = JObject.Parse(jsonText);
                         }
 
-                        return FileAccess.WriteJsonToFile(_filePath, _encryptJson, jsonText);
+                        return FileAccess.WriteJsonToFile(this.FS, _filePath, _encryptJson, jsonText);
                     },
                     GetJsonTextFromFile);
             });
         }
+
+        /// <summary>
+        /// Gets the filesystem.
+        /// </summary>
+        private IFileSystem FS { get; }
 
         public void Dispose()
         {
@@ -114,7 +127,7 @@ namespace JsonFlatFileDataStore
                 _jsonData = JObject.Parse(jsonData);
             }
 
-            FileAccess.WriteJsonToFile(_filePath, _encryptJson, jsonData);
+            FileAccess.WriteJsonToFile(this.FS,_filePath, _encryptJson, jsonData);
         }
 
         public void Reload()
@@ -418,7 +431,7 @@ namespace JsonFlatFileDataStore
             }
         }
 
-        private string GetJsonTextFromFile() => FileAccess.ReadJsonFromFile(_filePath, _encryptJson, _decryptJson);
+        private string GetJsonTextFromFile() => FileAccess.ReadJsonFromFile(this.FS, _filePath, _encryptJson, _decryptJson);
 
         private JObject GetJsonObjectFromFile() => JObject.Parse(GetJsonTextFromFile());
 
